@@ -148,7 +148,8 @@ h3 {
 
 .class-location {
   font-size: 0.75rem;
-  color: #ccc;
+  color: #000; /* Changed from #ccc to #000 for better visibility */
+  font-weight: 500; /* Added for better visibility */
 }
 
 /* Category colors */

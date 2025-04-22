@@ -3,6 +3,7 @@ let classes = [];
 let locations = [];
 let selectedLocations = [];
 let activePrograms = [];
+let activeTooltip = null; // Track active tooltip
 
 // Program to discipline mapping
 const programMap = {
@@ -44,6 +45,13 @@ function init() {
   
   // Set up refresh button
   refreshButton.addEventListener('click', fetchData);
+  
+  // Add document click event to close tooltip when clicking outside
+  document.addEventListener('click', (event) => {
+    if (activeTooltip && !event.target.closest('.class-card') && !event.target.closest('.tooltip')) {
+      hideTooltip();
+    }
+  });
 }
 
 // Create day headers for the schedule grid
@@ -251,6 +259,41 @@ function formatTime(time) {
   return time;
 }
 
+// Convert time to minutes for sorting
+function timeToMinutes(timeStr) {
+  if (!timeStr) return 0;
+  
+  let hours = 0;
+  let minutes = 0;
+  let isPM = false;
+  
+  // Check if time is in 12-hour format with AM/PM
+  if (timeStr.includes('AM') || timeStr.includes('PM')) {
+    isPM = timeStr.includes('PM');
+    const timePart = timeStr.replace(/\s*(AM|PM).*/, '');
+    if (timePart.includes(':')) {
+      [hours, minutes] = timePart.split(':').map(num => parseInt(num, 10));
+    } else {
+      hours = parseInt(timePart, 10);
+    }
+    
+    // Adjust for PM
+    if (isPM && hours < 12) {
+      hours += 12;
+    }
+    // Adjust for 12 AM
+    if (!isPM && hours === 12) {
+      hours = 0;
+    }
+  } 
+  // Handle 24-hour format
+  else if (timeStr.includes(':')) {
+    [hours, minutes] = timeStr.split(':').map(num => parseInt(num, 10));
+  }
+  
+  return hours * 60 + minutes;
+}
+
 // Render the schedule
 function renderSchedule() {
   // Clear existing classes
@@ -264,10 +307,8 @@ function renderSchedule() {
     const dayColumn = document.getElementById(`day-${day.toLowerCase()}`);
     const dayClasses = classes.filter(c => c.Day === day && isClassVisible(c))
       .sort((a, b) => {
-        // Sort by time
-        const timeA = a.Time || '';
-        const timeB = b.Time || '';
-        return timeA.localeCompare(timeB);
+        // Sort by time - convert to minutes for proper chronological order
+        return timeToMinutes(a.Time) - timeToMinutes(b.Time);
       });
     
     if (dayClasses.length === 0) {
@@ -318,7 +359,25 @@ function createClassCard(classItem) {
   
   // Add tooltip events
   card.addEventListener('mouseenter', (event) => showTooltip(event, classItem));
-  card.addEventListener('mouseleave', hideTooltip);
+  card.addEventListener('mouseleave', (event) => {
+    // Only hide if we're not showing the tooltip from a click
+    if (!activeTooltip) {
+      hideTooltip();
+    }
+  });
+  
+  // Add click event for mobile
+  card.addEventListener('click', (event) => {
+    // If tooltip is already active for this card, hide it
+    if (activeTooltip === card) {
+      hideTooltip();
+    } else {
+      // Show tooltip and remember which card activated it
+      showTooltip(event, classItem);
+      activeTooltip = card;
+    }
+    event.stopPropagation();
+  });
   
   return card;
 }
@@ -362,6 +421,7 @@ function showTooltip(event, classItem) {
 // Hide tooltip
 function hideTooltip() {
   tooltip.classList.add('hidden');
+  activeTooltip = null;
 }
 
 // Show error message
